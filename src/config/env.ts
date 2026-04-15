@@ -1,7 +1,14 @@
 export const env = {
   port: Number(process.env.PORT) || 3001,
+  corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean),
+  corsCredentials: (process.env.CORS_CREDENTIALS ?? 'true').toLowerCase() === 'true',
   authEnabled: (process.env.AUTH_ENABLED ?? 'true').toLowerCase() === 'true',
   authCheckRevoked: (process.env.AUTH_CHECK_REVOKED ?? 'false').toLowerCase() === 'true',
+  sseTokenSecret: process.env.SSE_TOKEN_SECRET ?? 'change-me-in-production',
+  sseTokenTtlSeconds: Number(process.env.SSE_TOKEN_TTL_SECONDS) || 300,
   eventPublisher: (process.env.EVENT_PUBLISHER ?? 'noop') as 'noop' | 'console' | 'firestore_outbox',
   eventOutboxCollection: process.env.EVENT_OUTBOX_COLLECTION ?? 'event_outbox',
   eventProcessedCollection: process.env.EVENT_PROCESSED_COLLECTION ?? 'processed_events',

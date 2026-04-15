@@ -23,7 +23,7 @@ export class JobsController {
 
   static async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const job = await jobsService.create(req.params.orgId, req.body);
+      const job = await jobsService.create(req.params.orgId, req.body, req.auth?.uid);
       res.status(201).json(job);
     } catch (error) {
       next(error);
@@ -32,7 +32,7 @@ export class JobsController {
 
   static async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const job = await jobsService.update(req.params.orgId, req.params.jobId, req.body);
+      const job = await jobsService.update(req.params.orgId, req.params.jobId, req.body, req.auth?.uid);
       res.status(200).json(job);
     } catch (error) {
       next(error);
@@ -41,7 +41,7 @@ export class JobsController {
 
   static async patchStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const job = await jobsService.updateStatus(req.params.orgId, req.params.jobId, req.body);
+      const job = await jobsService.updateStatus(req.params.orgId, req.params.jobId, req.body, req.auth?.uid);
       sendSuccess(res, job, 200);
     } catch (error) {
       next(error);
@@ -50,7 +50,7 @@ export class JobsController {
 
   static async remove(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      await jobsService.remove(req.params.orgId, req.params.jobId);
+      await jobsService.remove(req.params.orgId, req.params.jobId, req.auth?.uid);
       res.status(204).send();
     } catch (error) {
       next(error);

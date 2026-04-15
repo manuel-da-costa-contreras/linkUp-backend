@@ -6,10 +6,10 @@ import { JobDTO } from '../models/job.model';
 export class NotificationsRepository {
   private readonly collection = firestore.collection('notifications');
 
-  async listByOrg(orgId: string): Promise<NotificationEntity[]> {
+  async listByOrgAndOwner(orgId: string, ownerUid: string): Promise<NotificationEntity[]> {
     const [orgIdSnapshot, organizationIdSnapshot] = await Promise.all([
-      this.collection.where('orgId', '==', orgId).get(),
-      this.collection.where('organizationId', '==', orgId).get(),
+      this.collection.where('orgId', '==', orgId).where('ownerUid', '==', ownerUid).get(),
+      this.collection.where('organizationId', '==', orgId).where('ownerUid', '==', ownerUid).get(),
     ]);
 
     const byId = new Map<string, NotificationEntity>();
@@ -145,7 +145,7 @@ export class NotificationsRepository {
     await batch.commit();
   }
 
-  async dismiss(orgId: string, notificationId: string): Promise<boolean> {
+  async dismiss(orgId: string, ownerUid: string, notificationId: string): Promise<boolean> {
     const ref = this.collection.doc(notificationId);
     const doc = await ref.get();
 
@@ -154,7 +154,7 @@ export class NotificationsRepository {
     }
 
     const data = doc.data() as FirebaseFirestore.DocumentData;
-    if (!this.belongsToOrg(data, orgId)) {
+    if (!this.belongsToOrgAndOwner(data, orgId, ownerUid)) {
       return false;
     }
 
@@ -167,8 +167,8 @@ export class NotificationsRepository {
     return true;
   }
 
-  async dismissAll(orgId: string): Promise<number> {
-    const items = await this.listByOrg(orgId);
+  async dismissAll(orgId: string, ownerUid: string): Promise<number> {
+    const items = await this.listByOrgAndOwner(orgId, ownerUid);
     const activeItems = items.filter((item) => item.active);
 
     if (activeItems.length === 0) {
@@ -194,6 +194,7 @@ export class NotificationsRepository {
     return {
       id,
       orgId: String(data.orgId ?? data.organizationId ?? ''),
+      ownerUid: typeof data.ownerUid === 'string' ? data.ownerUid : undefined,
       jobId: String(data.jobId ?? ''),
       jobName: String(data.jobName ?? ''),
       clientName: String(data.clientName ?? ''),
@@ -206,8 +207,10 @@ export class NotificationsRepository {
     };
   }
 
-  private belongsToOrg(data: FirebaseFirestore.DocumentData, orgId: string): boolean {
-    return data.orgId === orgId || data.organizationId === orgId;
+  private belongsToOrgAndOwner(data: FirebaseFirestore.DocumentData, orgId: string, ownerUid: string): boolean {
+    const belongsOrg = data.orgId === orgId || data.organizationId === orgId;
+    const belongsOwner = data.ownerUid === ownerUid;
+    return belongsOrg && belongsOwner;
   }
 
   private toIso(value: unknown): string | undefined {

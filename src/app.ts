@@ -1,6 +1,8 @@
 import cors from 'cors';
 import express from 'express';
+import { env } from './config/env';
 import './config/firebase';
+import './types/express';
 import { authenticateRequest } from './middlewares/authenticate';
 import { errorHandler, notFound } from './middlewares/errorHandler';
 import authRoutes from './routes/auth';
@@ -12,7 +14,28 @@ import { sendSuccess } from './utils/apiResponse';
 
 const app = express();
 
-app.use(cors());
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (env.corsOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Authorization', 'Content-Type', 'Last-Event-ID'],
+  credentials: env.corsCredentials,
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 app.get('/health', (_req, res) => {

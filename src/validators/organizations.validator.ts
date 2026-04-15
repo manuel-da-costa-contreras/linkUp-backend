@@ -56,6 +56,7 @@ export const notificationsPaginationQuerySchema = z
 export const notificationsStreamQuerySchema = z.object({
   status: z.enum(['active', 'inactive']).default('active'),
   types: z.string().max(200).optional(),
+  token: z.string().min(10).max(5000).optional(),
 });
 
 export const organizationClientsQuerySchema = z.object({

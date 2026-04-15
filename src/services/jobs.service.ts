@@ -41,7 +41,7 @@ export class JobsService {
     return paginateArray(data, query.page, query.pageSize);
   }
 
-  async create(orgId: string, payload: CreateJobInput): Promise<JobDTO> {
+  async create(orgId: string, payload: CreateJobInput, actorUid?: string): Promise<JobDTO> {
     const created = await this.jobsRepository.create(orgId, payload);
 
     if (created.kind === 'client_not_found') {
@@ -55,13 +55,14 @@ export class JobsService {
         name: created.job.name,
         clientId: created.job.clientId,
         status: created.job.status,
+        actorUid,
       }),
     );
 
     return created.job;
   }
 
-  async update(orgId: string, jobId: string, payload: UpdateJobInput): Promise<JobDTO> {
+  async update(orgId: string, jobId: string, payload: UpdateJobInput, actorUid?: string): Promise<JobDTO> {
     const updated = await this.jobsRepository.update(orgId, jobId, payload);
 
     if (updated.kind === 'job_not_found') {
@@ -82,6 +83,7 @@ export class JobsService {
         newClientId: updated.job.clientId,
         oldStatus: updated.previous.status,
         newStatus: updated.job.status,
+        actorUid,
       }),
     );
 
@@ -92,6 +94,7 @@ export class JobsService {
     orgId: string,
     jobId: string,
     payload: { status?: unknown; reason?: unknown; rating?: unknown },
+    actorUid?: string,
   ): Promise<JobDTO> {
     const current = (await this.jobsRepository.list(orgId)).find((job) => job.id === jobId);
 
@@ -176,12 +179,12 @@ export class JobsService {
       status: nextStatus,
       reason: typeof payload.reason === 'string' ? payload.reason : undefined,
       rating: typeof payload.rating === 'number' ? payload.rating : undefined,
-    });
+    }, actorUid);
 
     return updated;
   }
 
-  async remove(orgId: string, jobId: string): Promise<void> {
+  async remove(orgId: string, jobId: string, actorUid?: string): Promise<void> {
     const removed = await this.jobsRepository.remove(orgId, jobId);
 
     if (removed.kind === 'job_not_found') {
@@ -199,6 +202,7 @@ export class JobsService {
         name: removed.deleted.name,
         clientId: removed.deleted.clientId,
         status: removed.deleted.status,
+        actorUid,
       }),
     );
   }

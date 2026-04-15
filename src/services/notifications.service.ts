@@ -15,8 +15,8 @@ const TYPE_MAP: Record<string, NotificationType> = {
 export class NotificationsService {
   constructor(private readonly notificationsRepository: NotificationsRepository = new NotificationsRepository()) {}
 
-  async list(orgId: string, query: NotificationsQuery): Promise<PaginatedResult<NotificationDTO>> {
-    const items = await this.notificationsRepository.listByOrg(orgId);
+  async list(orgId: string, ownerUid: string, query: NotificationsQuery): Promise<PaginatedResult<NotificationDTO>> {
+    const items = await this.notificationsRepository.listByOrgAndOwner(orgId, ownerUid);
 
     const allowedTypes = this.parseTypes(query.types);
     const filtered = items.filter((item) => this.matchesStatus(item, query.status) && this.matchesType(item, allowedTypes));
@@ -31,8 +31,8 @@ export class NotificationsService {
     return paginateArray(data, query.page, query.pageSize);
   }
 
-  async dismiss(orgId: string, notificationId: string): Promise<void> {
-    const dismissed = await this.notificationsRepository.dismiss(orgId, notificationId);
+  async dismiss(orgId: string, ownerUid: string, notificationId: string): Promise<void> {
+    const dismissed = await this.notificationsRepository.dismiss(orgId, ownerUid, notificationId);
 
     if (!dismissed) {
       throw new HttpError(
@@ -44,10 +44,10 @@ export class NotificationsService {
     }
   }
 
-  async dismissAll(orgId: string): Promise<void> {
-    const dismissedCount = await this.notificationsRepository.dismissAll(orgId);
+  async dismissAll(orgId: string, ownerUid: string): Promise<void> {
+    const dismissedCount = await this.notificationsRepository.dismissAll(orgId, ownerUid);
 
-    notificationsStreamService.emitDismissedAll(orgId, {
+    notificationsStreamService.emitDismissedAll(orgId, ownerUid, {
       dismissedCount,
       dismissedAt: new Date().toISOString(),
       scope: {

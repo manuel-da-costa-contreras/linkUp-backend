@@ -9,6 +9,7 @@
     "dev": "ts-node src/index.ts",
     "test": "jest",
     "seed": "ts-node src/scripts/seed.ts",
+    "auth:grant-org-role": "ts-node src/scripts/auth/grant-org-role.ts",
     "events:consume": "ts-node src/scripts/events/consume-once.ts",
     "events:consume:watch": "ts-node src/scripts/events/consume-watch.ts",
     "dev:ed:api": "powershell -NoProfile -Command \"$env:EVENT_PUBLISHER='firestore_outbox'; npm run dev\"",

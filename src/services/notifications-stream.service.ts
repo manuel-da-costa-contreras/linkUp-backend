@@ -7,12 +7,14 @@ type StreamStatusFilter = 'active' | 'inactive';
 type StreamEventName = 'notification.upsert' | 'notification.dismissed' | 'notification.dismissed_all';
 
 interface StreamFilter {
+  ownerUid: string;
   status: StreamStatusFilter;
   types: NotificationType[] | null;
 }
 
 interface StreamClient {
   id: string;
+  ownerUid: string;
   res: Response;
   filter: StreamFilter;
   pingTimer: NodeJS.Timeout;
@@ -22,13 +24,14 @@ interface StreamEnvelope {
   id: string;
   event: StreamEventName;
   orgId: string;
+  ownerUid?: string;
   notificationType?: NotificationType;
   payload: Record<string, unknown>;
 }
 
 interface OrgChannel {
   clients: Map<string, StreamClient>;
-  known: Map<string, { active: boolean; type: NotificationType; jobId: string }>;
+  known: Map<string, { active: boolean; type: NotificationType; jobId: string; ownerUid?: string }>;
   history: StreamEnvelope[];
   initialized: boolean;
   unsubscribe?: () => void;
@@ -50,11 +53,12 @@ export class NotificationsStreamService {
 
   subscribe(
     orgId: string,
+    ownerUid: string,
     res: Response,
     query: { status?: string; types?: string },
     lastEventId?: string,
   ): () => void {
-    const filter = this.parseFilter(query.status, query.types);
+    const filter = this.parseFilter(ownerUid, query.status, query.types);
     const channel = this.ensureChannel(orgId);
     this.ensureListener(orgId, channel);
 
@@ -65,6 +69,7 @@ export class NotificationsStreamService {
 
     const client: StreamClient = {
       id: clientId,
+      ownerUid,
       res,
       filter,
       pingTimer,
@@ -91,12 +96,14 @@ export class NotificationsStreamService {
 
   emitDismissedAll(
     orgId: string,
+    ownerUid: string,
     payload: { dismissedCount: number; dismissedAt: string; scope: { status: 'active'; types: NotificationType[] } },
   ): void {
     const envelope: StreamEnvelope = {
       id: this.nextEventId(),
       event: 'notification.dismissed_all',
       orgId,
+      ownerUid,
       payload: {
         type: 'notification.dismissed_all',
         orgId,
@@ -139,6 +146,7 @@ export class NotificationsStreamService {
             active: normalized.active,
             type: normalized.notificationType,
             jobId: normalized.jobId,
+            ownerUid: normalized.ownerUid,
           });
         });
         channel.initialized = true;
@@ -152,6 +160,7 @@ export class NotificationsStreamService {
           active: normalized.active,
           type: normalized.notificationType,
           jobId: normalized.jobId,
+          ownerUid: normalized.ownerUid,
         });
 
         if (normalized.active) {
@@ -159,6 +168,7 @@ export class NotificationsStreamService {
             id: this.nextEventId(),
             event: 'notification.upsert',
             orgId,
+            ownerUid: normalized.ownerUid,
             notificationType: normalized.notificationType,
             payload: {
               type: 'notification.upsert',
@@ -186,6 +196,7 @@ export class NotificationsStreamService {
             id: this.nextEventId(),
             event: 'notification.dismissed',
             orgId,
+            ownerUid: normalized.ownerUid,
             notificationType: normalized.notificationType,
             payload: {
               type: 'notification.dismissed',
@@ -257,6 +268,14 @@ export class NotificationsStreamService {
   }
 
   private matchesFilter(filter: StreamFilter, envelope: StreamEnvelope): boolean {
+    if (!envelope.ownerUid) {
+      return false;
+    }
+
+    if (filter.ownerUid !== envelope.ownerUid) {
+      return false;
+    }
+
     if (envelope.event === 'notification.dismissed_all') {
       return true;
     }
@@ -272,14 +291,14 @@ export class NotificationsStreamService {
     return envelope.event === 'notification.upsert' || envelope.event === 'notification.dismissed';
   }
 
-  private parseFilter(status?: string, types?: string): StreamFilter {
+  private parseFilter(ownerUid: string, status?: string, types?: string): StreamFilter {
     const normalizedStatus = (status ?? 'active').toLowerCase();
     if (normalizedStatus !== 'active' && normalizedStatus !== 'inactive') {
       throw new HttpError(400, 'Validation failed', { field: 'status', reason: 'invalid_enum' }, 'VALIDATION_ERROR');
     }
 
     if (!types || types.trim().length === 0) {
-      return { status: normalizedStatus, types: null };
+      return { ownerUid, status: normalizedStatus, types: null };
     }
 
     const parsed = types
@@ -294,11 +313,12 @@ export class NotificationsStreamService {
         return mapped;
       });
 
-    return { status: normalizedStatus, types: parsed };
+    return { ownerUid, status: normalizedStatus, types: parsed };
   }
 
   private normalizeNotification(id: string, raw: FirebaseFirestore.DocumentData): {
     id: string;
+    ownerUid?: string;
     jobId: string;
     jobName: string;
     clientName: string;
@@ -318,6 +338,7 @@ export class NotificationsStreamService {
 
     return {
       id,
+      ownerUid: typeof raw.ownerUid === 'string' ? raw.ownerUid : undefined,
       jobId: String(raw.jobId ?? ''),
       jobName: String(raw.jobName ?? ''),
       clientName: String(raw.clientName ?? ''),

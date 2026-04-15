@@ -6,6 +6,7 @@ export type JobEventType = 'job.created' | 'job.updated' | 'job.deleted';
 export interface JobEventPayload {
   jobId: string;
   name: string;
+  actorUid?: string;
   oldStatus: JobStatus | null;
   newStatus: JobStatus | null;
   oldClientId: string | null;
@@ -39,12 +40,14 @@ export function buildJobCreatedEvent(input: {
   name: string;
   clientId: string;
   status: JobStatus;
+  actorUid?: string;
 }): JobDomainEvent {
   return {
     ...baseEvent(input.orgId, input.jobId, 'job.created'),
     data: {
       jobId: input.jobId,
       name: input.name,
+      actorUid: input.actorUid,
       oldStatus: null,
       newStatus: input.status,
       oldClientId: null,
@@ -62,12 +65,14 @@ export function buildJobUpdatedEvent(input: {
   newClientId: string;
   oldStatus: JobStatus;
   newStatus: JobStatus;
+  actorUid?: string;
 }): JobDomainEvent {
   return {
     ...baseEvent(input.orgId, input.jobId, 'job.updated'),
     data: {
       jobId: input.jobId,
       name: input.newName,
+      actorUid: input.actorUid,
       oldStatus: input.oldStatus,
       newStatus: input.newStatus,
       oldClientId: input.oldClientId,
@@ -82,12 +87,14 @@ export function buildJobDeletedEvent(input: {
   name: string;
   clientId: string;
   status: JobStatus;
+  actorUid?: string;
 }): JobDomainEvent {
   return {
     ...baseEvent(input.orgId, input.jobId, 'job.deleted'),
     data: {
       jobId: input.jobId,
       name: input.name,
+      actorUid: input.actorUid,
       oldStatus: input.status,
       newStatus: null,
       oldClientId: input.clientId,

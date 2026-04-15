@@ -21,6 +21,7 @@ export interface NotificationsQuery {
 export interface NotificationEntity {
   id: string;
   orgId: string;
+  ownerUid?: string;
   jobId: string;
   jobName: string;
   clientName: string;
