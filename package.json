@@ -18,7 +18,7 @@
     "dev:ed": "powershell -NoProfile -Command \"Start-Process powershell -ArgumentList '-NoExit','-NoProfile','-Command','$env:EVENT_PROJECTION_MODE=''''apply''''; npm run events:consume:watch'; $env:EVENT_PUBLISHER='firestore_outbox'; npm run dev\""
   },
   "engines": {
-    "node": ">=18"
+    "node": "20.x"
   },
   "keywords": [],
   "author": "",
