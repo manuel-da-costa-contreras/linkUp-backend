@@ -185,6 +185,20 @@ export class JobsService {
   }
 
   async remove(orgId: string, jobId: string, actorUid?: string): Promise<void> {
+    const current = (await this.jobsRepository.list(orgId)).find((job) => job.id === jobId);
+    if (!current) {
+      throw new HttpError(404, 'Job not found', { field: 'jobId' }, 'JOB_NOT_FOUND');
+    }
+
+    if (current.status === 'IN_PROGRESS') {
+      throw new HttpError(
+        409,
+        'Job in progress cannot be deleted',
+        { field: 'status', reason: 'in_progress', status: current.status },
+        'JOB_DELETE_BLOCKED',
+      );
+    }
+
     const removed = await this.jobsRepository.remove(orgId, jobId);
 
     if (removed.kind === 'job_not_found') {
