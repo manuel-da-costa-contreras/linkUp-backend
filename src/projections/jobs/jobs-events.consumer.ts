@@ -27,7 +27,9 @@ export class JobsEventsConsumer {
         }
 
         if (env.eventProjectionMode === 'apply') {
-          await this.countersProjection.apply(item.event);
+          if (env.eventApplyCountersProjection) {
+            await this.countersProjection.apply(item.event);
+          }
           await this.notificationsProjection.apply(item.event);
         }
 

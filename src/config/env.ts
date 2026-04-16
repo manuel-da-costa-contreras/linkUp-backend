@@ -18,4 +18,5 @@ export const env = {
   eventConsumerBatchSize: Number(process.env.EVENT_CONSUMER_BATCH_SIZE) || 50,
   eventConsumerIntervalMs: Number(process.env.EVENT_CONSUMER_INTERVAL_MS) || 2000,
   eventProjectionMode: (process.env.EVENT_PROJECTION_MODE ?? 'shadow') as 'shadow' | 'apply',
+  eventApplyCountersProjection: (process.env.EVENT_APPLY_COUNTERS_PROJECTION ?? 'false').toLowerCase() === 'true',
 };

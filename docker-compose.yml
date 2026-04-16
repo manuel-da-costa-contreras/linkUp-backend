@@ -1,0 +1,47 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: linkup-backend-api
+    command: node dist/index.js
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      NODE_ENV: production
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      CORS_CREDENTIALS: ${CORS_CREDENTIALS:-true}
+      AUTH_ENABLED: ${AUTH_ENABLED:-true}
+      AUTH_CHECK_REVOKED: ${AUTH_CHECK_REVOKED:-false}
+      SSE_TOKEN_SECRET: ${SSE_TOKEN_SECRET:-local-dev-secret}
+      SSE_TOKEN_TTL_SECONDS: ${SSE_TOKEN_TTL_SECONDS:-300}
+      EVENT_PUBLISHER: ${EVENT_PUBLISHER:-firestore_outbox}
+      EVENT_OUTBOX_COLLECTION: ${EVENT_OUTBOX_COLLECTION:-event_outbox}
+      EVENT_PROCESSED_COLLECTION: ${EVENT_PROCESSED_COLLECTION:-processed_events}
+      EVENT_PROJECTION_MODE: ${EVENT_PROJECTION_MODE:-apply}
+      EVENT_CONSUMER_BATCH_SIZE: ${EVENT_CONSUMER_BATCH_SIZE:-50}
+      EVENT_CONSUMER_INTERVAL_MS: ${EVENT_CONSUMER_INTERVAL_MS:-2000}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+      FIREBASE_SERVICE_ACCOUNT_BASE64: ${FIREBASE_SERVICE_ACCOUNT_BASE64:-}
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: linkup-backend-worker
+    command: node dist/scripts/events/consume-watch.js
+    environment:
+      NODE_ENV: production
+      EVENT_PUBLISHER: ${EVENT_PUBLISHER:-firestore_outbox}
+      EVENT_OUTBOX_COLLECTION: ${EVENT_OUTBOX_COLLECTION:-event_outbox}
+      EVENT_PROCESSED_COLLECTION: ${EVENT_PROCESSED_COLLECTION:-processed_events}
+      EVENT_PROJECTION_MODE: ${EVENT_PROJECTION_MODE:-apply}
+      EVENT_CONSUMER_BATCH_SIZE: ${EVENT_CONSUMER_BATCH_SIZE:-50}
+      EVENT_CONSUMER_INTERVAL_MS: ${EVENT_CONSUMER_INTERVAL_MS:-2000}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+      FIREBASE_SERVICE_ACCOUNT_BASE64: ${FIREBASE_SERVICE_ACCOUNT_BASE64:-}
+    depends_on:
+      - api
+    restart: unless-stopped

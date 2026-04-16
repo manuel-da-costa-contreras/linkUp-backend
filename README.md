@@ -127,6 +127,46 @@ Worker de eventos (produccion):
 npm run start:worker
 ```
 
+Limpieza de datos por organizacion (Firestore):
+
+```bash
+# 1) Dry-run (solo muestra cuantos docs borraria)
+npm run db:clean:org -- --orgId=acme
+
+# 2) Borrado real
+npm run db:clean:org -- --orgId=acme --apply
+```
+
+## Docker Compose (self-hosted)
+
+Archivos incluidos:
+
+- `Dockerfile`
+- `docker-compose.yml`
+- `.env.docker.example`
+
+Pasos:
+
+1. Copiar `.env.docker.example` a `.env` y completar secretos.
+2. Levantar servicios:
+
+```bash
+docker compose up -d --build
+```
+
+3. Ver logs:
+
+```bash
+docker compose logs -f api
+docker compose logs -f worker
+```
+
+4. Apagar cuando quieras:
+
+```bash
+docker compose down
+```
+
 ## Deploy en Render
 
 El repo ya incluye `render.yaml` con dos servicios:

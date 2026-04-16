@@ -10,6 +10,8 @@
     "dev": "ts-node src/index.ts",
     "test": "jest",
     "seed": "ts-node src/scripts/seed.ts",
+    "db:clean:org": "ts-node src/scripts/db/clean-org.ts",
+    "db:recalc:client-counters": "ts-node src/scripts/db/recalc-client-counters.ts",
     "auth:grant-org-role": "ts-node src/scripts/auth/grant-org-role.ts",
     "events:consume": "ts-node src/scripts/events/consume-once.ts",
     "events:consume:watch": "ts-node src/scripts/events/consume-watch.ts",
