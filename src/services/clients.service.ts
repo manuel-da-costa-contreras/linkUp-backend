@@ -1,4 +1,11 @@
-import { ClientDTO, ClientEntity, ClientOptionDTO, CreateClientInput, UpdateClientInput } from '../models/client.model';
+import {
+  ClientDTO,
+  ClientEntity,
+  ClientOptionDTO,
+  CreateClientInput,
+  DeleteClientResult,
+  UpdateClientInput,
+} from '../models/client.model';
 import { PaginatedResult, PaginationQuery } from '../models/pagination.model';
 import { ClientsRepository } from '../repositories/clients.repository';
 import { HttpError } from '../utils/httpError';
@@ -67,25 +74,30 @@ export class ClientsService {
     return updated;
   }
 
-  async remove(orgId: string, clientId: string): Promise<void> {
+  async remove(orgId: string, clientId: string): Promise<DeleteClientResult> {
     const clientExists = await this.clientsRepository.existsById(orgId, clientId);
     if (!clientExists) {
-      throw new HttpError(404, 'Client not found', { field: 'clientId' }, 'CLIENT_NOT_FOUND');
+      throw new HttpError(404, 'Client not found', { field: 'clientId', clientId }, 'CLIENT_NOT_FOUND');
     }
 
-    const hasActiveJobs = await this.clientsRepository.hasActiveJobs(orgId, clientId);
-    if (hasActiveJobs) {
+    try {
+      const removed = await this.clientsRepository.removeWithJobReassignment(orgId, clientId);
+      if (!removed) {
+        throw new HttpError(404, 'Client not found', { field: 'clientId', clientId }, 'CLIENT_NOT_FOUND');
+      }
+
+      return removed;
+    } catch (error) {
+      if (error instanceof HttpError) {
+        throw error;
+      }
+
       throw new HttpError(
         409,
-        'Client has active jobs and cannot be deleted',
-        { field: 'clientId' },
-        'CLIENT_DELETE_BLOCKED',
+        'Failed to reassign client jobs before delete',
+        { field: 'clientId', clientId },
+        'CLIENT_DELETE_REASSIGN_FAILED',
       );
-    }
-
-    const removed = await this.clientsRepository.remove(orgId, clientId);
-    if (!removed) {
-      throw new HttpError(404, 'Client not found', { field: 'clientId' }, 'CLIENT_NOT_FOUND');
     }
   }
 

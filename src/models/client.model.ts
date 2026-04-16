@@ -31,3 +31,10 @@ export interface CreateClientInput {
 export interface UpdateClientInput {
   name: string;
 }
+
+export interface DeleteClientResult {
+  deletedClientId: string;
+  reassignedJobs: number;
+  newStatus: 'PENDING';
+  newClientId: null;
+}

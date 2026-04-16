@@ -1,6 +1,6 @@
 import * as admin from 'firebase-admin';
 import { firestore } from '../config/firebase';
-import { ClientDTO, ClientEntity, ClientOptionDTO } from '../models/client.model';
+import { ClientDTO, ClientEntity, ClientOptionDTO, DeleteClientResult } from '../models/client.model';
 
 const ACTIVE_JOB_STATUSES = ['pending', 'open', 'todo', 'in_progress', 'in-progress', 'processing'];
 
@@ -90,6 +90,48 @@ export class ClientsRepository {
 
     await this.clientsCollection.doc(clientId).delete();
     return true;
+  }
+
+  async removeWithJobReassignment(orgId: string, clientId: string): Promise<DeleteClientResult | null> {
+    return firestore.runTransaction(async (tx) => {
+      const clientRef = this.clientsCollection.doc(clientId);
+      const clientSnap = await tx.get(clientRef);
+
+      if (!clientSnap.exists || !this.belongsToOrg(clientSnap.data() as FirebaseFirestore.DocumentData, orgId)) {
+        return null;
+      }
+
+      const [orgJobsSnap, organizationJobsSnap] = await Promise.all([
+        tx.get(this.jobsCollection.where('orgId', '==', orgId).where('clientId', '==', clientId)),
+        tx.get(this.jobsCollection.where('organizationId', '==', orgId).where('clientId', '==', clientId)),
+      ]);
+
+      const jobsById = new Map<string, FirebaseFirestore.DocumentSnapshot>();
+      orgJobsSnap.docs.forEach((doc) => jobsById.set(doc.id, doc));
+      organizationJobsSnap.docs.forEach((doc) => jobsById.set(doc.id, doc));
+
+      const now = admin.firestore.Timestamp.now();
+      let reassignedJobs = 0;
+
+      jobsById.forEach((jobDoc) => {
+        tx.update(jobDoc.ref, {
+          clientId: null,
+          status: 'PENDING',
+          reason: 'client_deleted_reassignment',
+          updatedAt: now,
+        });
+        reassignedJobs += 1;
+      });
+
+      tx.delete(clientRef);
+
+      return {
+        deletedClientId: clientId,
+        reassignedJobs,
+        newStatus: 'PENDING' as const,
+        newClientId: null,
+      };
+    });
   }
 
   async hasActiveJobs(orgId: string, clientId: string): Promise<boolean> {

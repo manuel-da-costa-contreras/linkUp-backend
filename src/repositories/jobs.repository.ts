@@ -77,7 +77,7 @@ export class JobsRepository {
 
     return jobs.map((job) => {
       const clientId = String(job.clientId ?? job.client_id ?? '');
-      const clientName = clientById.get(clientId)?.name ?? '';
+      const clientName = clientId ? (clientById.get(clientId)?.name ?? '') : 'Sin cliente';
 
       return {
         id: String(job.id),
