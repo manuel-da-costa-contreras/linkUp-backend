@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import { firestore } from '../../config/firebase';
+import { firebaseAuth, firestore } from '../../config/firebase';
 import { OrgRole } from '../../models/organization-membership.model';
 
 function parseArg(name: string): string | undefined {
@@ -50,7 +50,25 @@ async function run(): Promise<void> {
     { merge: true },
   );
 
-  console.log(`Granted role ${role} to uid=${uid} in org=${orgId}`);
+  const user = await firebaseAuth.getUser(uid);
+  const existingClaims = (user.customClaims ?? {}) as Record<string, unknown>;
+  const existingOrgRoles =
+    typeof existingClaims.orgRoles === 'object' && existingClaims.orgRoles !== null
+      ? (existingClaims.orgRoles as Record<string, unknown>)
+      : {};
+
+  await firebaseAuth.setCustomUserClaims(uid, {
+    ...existingClaims,
+    orgId,
+    organizationId: orgId,
+    role,
+    orgRoles: {
+      ...existingOrgRoles,
+      [orgId]: role,
+    },
+  });
+
+  console.log(`Granted role ${role} to uid=${uid} in org=${orgId} and updated custom claims`);
 }
 
 run()

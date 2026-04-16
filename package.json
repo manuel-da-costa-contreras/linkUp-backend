@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:worker": "node dist/scripts/events/consume-watch.js",
     "dev": "ts-node src/index.ts",
     "test": "jest",
     "seed": "ts-node src/scripts/seed.ts",
@@ -15,6 +16,9 @@
     "dev:ed:api": "powershell -NoProfile -Command \"$env:EVENT_PUBLISHER='firestore_outbox'; npm run dev\"",
     "dev:ed:consumer": "powershell -NoProfile -Command \"$env:EVENT_PROJECTION_MODE='apply'; npm run events:consume:watch\"",
     "dev:ed": "powershell -NoProfile -Command \"Start-Process powershell -ArgumentList '-NoExit','-NoProfile','-Command','$env:EVENT_PROJECTION_MODE=''''apply''''; npm run events:consume:watch'; $env:EVENT_PUBLISHER='firestore_outbox'; npm run dev\""
+  },
+  "engines": {
+    "node": ">=18"
   },
   "keywords": [],
   "author": "",

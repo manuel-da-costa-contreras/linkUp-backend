@@ -40,4 +40,26 @@ export class AuthRepository {
       { merge: true },
     );
   }
+
+  async setUserClaimsForOrg(input: { uid: string; orgId: string; role: OrgRole }): Promise<void> {
+    const user = await firebaseAuth.getUser(input.uid);
+    const existing = (user.customClaims ?? {}) as Record<string, unknown>;
+    const existingOrgRoles =
+      typeof existing.orgRoles === 'object' && existing.orgRoles !== null
+        ? (existing.orgRoles as Record<string, unknown>)
+        : {};
+
+    const nextClaims: Record<string, unknown> = {
+      ...existing,
+      orgId: input.orgId,
+      organizationId: input.orgId,
+      role: input.role,
+      orgRoles: {
+        ...existingOrgRoles,
+        [input.orgId]: input.role,
+      },
+    };
+
+    await firebaseAuth.setCustomUserClaims(input.uid, nextClaims);
+  }
 }

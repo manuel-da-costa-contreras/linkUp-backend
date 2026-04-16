@@ -1,0 +1,61 @@
+services:
+  - type: web
+    name: saas-dashboard-backend-api
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AUTH_ENABLED
+        value: "true"
+      - key: AUTH_CHECK_REVOKED
+        value: "false"
+      - key: EVENT_PUBLISHER
+        value: firestore_outbox
+      - key: EVENT_PROJECTION_MODE
+        value: apply
+      - key: EVENT_OUTBOX_COLLECTION
+        value: event_outbox
+      - key: EVENT_PROCESSED_COLLECTION
+        value: processed_events
+      - key: EVENT_CONSUMER_BATCH_SIZE
+        value: "50"
+      - key: EVENT_CONSUMER_INTERVAL_MS
+        value: "2000"
+      - key: SSE_TOKEN_TTL_SECONDS
+        value: "300"
+      - key: SSE_TOKEN_SECRET
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: CORS_CREDENTIALS
+        value: "true"
+
+  - type: worker
+    name: saas-dashboard-backend-worker
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:worker
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: EVENT_PUBLISHER
+        value: firestore_outbox
+      - key: EVENT_PROJECTION_MODE
+        value: apply
+      - key: EVENT_OUTBOX_COLLECTION
+        value: event_outbox
+      - key: EVENT_PROCESSED_COLLECTION
+        value: processed_events
+      - key: EVENT_CONSUMER_BATCH_SIZE
+        value: "50"
+      - key: EVENT_CONSUMER_INTERVAL_MS
+        value: "2000"
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false

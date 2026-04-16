@@ -121,6 +121,34 @@ npm run build
 npm start
 ```
 
+Worker de eventos (produccion):
+
+```bash
+npm run start:worker
+```
+
+## Deploy en Render
+
+El repo ya incluye `render.yaml` con dos servicios:
+
+- `saas-dashboard-backend-api` (web)
+- `saas-dashboard-backend-worker` (background worker)
+
+Pasos:
+
+1. Conectar el repo en Render.
+2. Crear servicios desde blueprint (`render.yaml`).
+3. Completar variables secretas:
+   - `FIREBASE_SERVICE_ACCOUNT_JSON`
+   - `SSE_TOKEN_SECRET`
+   - `CORS_ORIGINS` (dominio real del frontend)
+4. Desplegar.
+
+Nota sobre Firebase:
+
+- En cloud se recomienda `FIREBASE_SERVICE_ACCOUNT_JSON` o `FIREBASE_SERVICE_ACCOUNT_BASE64`.
+- El archivo local `src/serviceAccountKey.json` es solo para desarrollo local.
+
 ## Principios de codigo
 
 - Clean Code pragmatica
@@ -137,4 +165,3 @@ npm start
 - Notificaciones (listado, dismiss, dismiss-all)
 - Notificaciones en tiempo real via SSE
 - Auth (register real, sse-token, middleware authn/authz)
-

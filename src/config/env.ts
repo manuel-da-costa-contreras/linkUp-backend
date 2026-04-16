@@ -1,6 +1,9 @@
 export const env = {
   port: Number(process.env.PORT) || 3001,
-  corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
+  corsOrigins: (
+    process.env.CORS_ORIGINS ??
+    'http://localhost:3000,http://localhost:3002,http://localhost:5173,http://web:3000,http://host.docker.internal:3002'
+  )
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean),

@@ -13,6 +13,7 @@ pnpm-debug.log*
 
 # Firebase admin service account
 serviceAccountKey.json
+src/serviceAccountKey.json
 
 # OS
 .DS_Store

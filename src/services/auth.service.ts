@@ -42,6 +42,11 @@ export class AuthService {
         orgId: payload.orgId,
         role: 'VIEWER',
       });
+      await this.authRepository.setUserClaimsForOrg({
+        uid: user.uid,
+        orgId: payload.orgId,
+        role: 'VIEWER',
+      });
 
       return {
         message: 'User registered',
