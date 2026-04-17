@@ -7,6 +7,10 @@ export const env = {
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean),
+  corsOriginPatterns: (process.env.CORS_ORIGIN_PATTERNS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean),
   corsCredentials: (process.env.CORS_CREDENTIALS ?? 'true').toLowerCase() === 'true',
   authEnabled: (process.env.AUTH_ENABLED ?? 'true').toLowerCase() === 'true',
   authCheckRevoked: (process.env.AUTH_CHECK_REVOKED ?? 'false').toLowerCase() === 'true',

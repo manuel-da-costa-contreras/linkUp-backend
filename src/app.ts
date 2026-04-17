@@ -14,6 +14,27 @@ import { sendSuccess } from './utils/apiResponse';
 
 const app = express();
 
+const normalizeOrigin = (origin: string): string => {
+  try {
+    const parsed = new URL(origin);
+    const port = parsed.port ? `:${parsed.port}` : '';
+    return `${parsed.protocol}//${parsed.hostname}${port}`.toLowerCase();
+  } catch {
+    return origin.replace(/\/+$/, '').toLowerCase();
+  }
+};
+
+const wildcardToRegex = (pattern: string): RegExp => {
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+  const withWildcards = escaped.replace(/\*/g, '.*');
+  return new RegExp(`^${withWildcards}$`, 'i');
+};
+
+const allowedOriginSet = new Set(env.corsOrigins.map((origin) => normalizeOrigin(origin)));
+const allowedOriginPatterns = env.corsOriginPatterns.map((pattern) =>
+  wildcardToRegex(normalizeOrigin(pattern)),
+);
+
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
     if (!origin) {
@@ -21,7 +42,14 @@ const corsOptions: cors.CorsOptions = {
       return;
     }
 
-    if (env.corsOrigins.includes(origin)) {
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (allowedOriginSet.has(normalizedOrigin)) {
+      callback(null, true);
+      return;
+    }
+
+    const matchesPattern = allowedOriginPatterns.some((regex) => regex.test(normalizedOrigin));
+    if (matchesPattern) {
       callback(null, true);
       return;
     }

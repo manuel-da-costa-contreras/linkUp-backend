@@ -35,6 +35,8 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+      - key: CORS_ORIGIN_PATTERNS
+        sync: false
       - key: CORS_CREDENTIALS
         value: "true"
 
