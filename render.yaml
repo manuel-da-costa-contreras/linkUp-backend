@@ -27,6 +27,12 @@ services:
         value: "50"
       - key: EVENT_CONSUMER_INTERVAL_MS
         value: "2000"
+      - key: EVENT_CONSUMER_IDLE_INTERVAL_MS
+        value: "15000"
+      - key: EVENT_CONSUMER_ERROR_BACKOFF_MS
+        value: "10000"
+      - key: EVENT_CONSUMER_MAX_BACKOFF_MS
+        value: "120000"
       - key: SSE_TOKEN_TTL_SECONDS
         value: "300"
       - key: SSE_TOKEN_SECRET
@@ -63,5 +69,11 @@ services:
         value: "50"
       - key: EVENT_CONSUMER_INTERVAL_MS
         value: "2000"
+      - key: EVENT_CONSUMER_IDLE_INTERVAL_MS
+        value: "15000"
+      - key: EVENT_CONSUMER_ERROR_BACKOFF_MS
+        value: "10000"
+      - key: EVENT_CONSUMER_MAX_BACKOFF_MS
+        value: "120000"
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false

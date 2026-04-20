@@ -21,6 +21,9 @@ export const env = {
   eventProcessedCollection: process.env.EVENT_PROCESSED_COLLECTION ?? 'processed_events',
   eventConsumerBatchSize: Number(process.env.EVENT_CONSUMER_BATCH_SIZE) || 50,
   eventConsumerIntervalMs: Number(process.env.EVENT_CONSUMER_INTERVAL_MS) || 2000,
+  eventConsumerIdleIntervalMs: Number(process.env.EVENT_CONSUMER_IDLE_INTERVAL_MS) || 15000,
+  eventConsumerErrorBackoffMs: Number(process.env.EVENT_CONSUMER_ERROR_BACKOFF_MS) || 10000,
+  eventConsumerMaxBackoffMs: Number(process.env.EVENT_CONSUMER_MAX_BACKOFF_MS) || 120000,
   eventProjectionMode: (process.env.EVENT_PROJECTION_MODE ?? 'shadow') as 'shadow' | 'apply',
   eventApplyCountersProjection: (process.env.EVENT_APPLY_COUNTERS_PROJECTION ?? 'false').toLowerCase() === 'true',
 };
