@@ -6,71 +6,59 @@ import {
   SatisfactionBreakdownDTO,
 } from '../models/metric.model';
 
-const OPEN_STATUSES = ['open', 'pending'];
-const COMPLETED_STATUSES = ['completed', 'paid', 'done'];
+type AnyDoc = FirebaseFirestore.DocumentData & { id?: string };
+
+const PENDING_STATUSES = ['PENDING'];
+const OPEN_JOB_STATUSES = ['PENDING', 'IN_PROGRESS'];
+const COMPLETED_JOB_STATUS = 'COMPLETED';
 
 export class MetricsRepository {
-  private readonly usersCollection = firestore.collection('users');
-  private readonly alertsCollection = firestore.collection('alerts');
-  private readonly tasksCollection = firestore.collection('tasks');
+  private readonly clientsCollection = firestore.collection('clients');
   private readonly jobsCollection = firestore.collection('jobs');
-  private readonly ordersCollection = firestore.collection('orders');
-  private readonly feedbackCollection = firestore.collection('feedback');
 
   async summary(orgId?: string): Promise<DashboardOverviewDTO> {
     const now = new Date();
+    const [clients, jobs] = await Promise.all([this.getDocsByOrg(this.clientsCollection, orgId), this.getDocsByOrg(this.jobsCollection, orgId)]);
 
-    const [users, alerts, tasks, jobs, orders, feedback] = await Promise.all([
-      this.getDocs(this.usersCollection, orgId),
-      this.getDocs(this.alertsCollection, orgId),
-      this.getDocs(this.tasksCollection, orgId),
-      this.getDocs(this.jobsCollection, orgId),
-      this.getDocs(this.ordersCollection, orgId),
-      this.getDocs(this.feedbackCollection, orgId),
-    ]);
+    const currentMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
-    const jobsSource = jobs.length > 0 ? jobs : orders;
-    const completedTasksSource = tasks.length > 0 ? tasks : orders;
+    const activeUsersCurrent = clients.length;
+    const activeUsersPrevious = clients.reduce((count, client) => {
+      const createdAt = this.extractEventDate(client);
+      if (!createdAt) {
+        return count;
+      }
 
-    const activeUsersCurrent = this.countInMonth(users, now.getUTCFullYear(), now.getUTCMonth());
-    const previousMonthDate = this.addMonthsUTC(now, -1);
-    const activeUsersPrevious = this.countInMonth(
-      users,
-      previousMonthDate.getUTCFullYear(),
-      previousMonthDate.getUTCMonth(),
-    );
+      return createdAt < currentMonthStart ? count + 1 : count;
+    }, 0);
 
-    const openAlertsCurrent = this.countInUtcDay(alerts, now, OPEN_STATUSES);
-    const yesterday = this.addDaysUTC(now, -1);
-    const openAlertsPrevious = this.countInUtcDay(alerts, yesterday, OPEN_STATUSES);
+    const openAlertsCurrent = jobs.filter((job) => PENDING_STATUSES.includes(this.extractStatus(job))).length;
+    const openAlertsPrevious = jobs.reduce((count, job) => {
+      const updatedAt = this.extractEventDate(job);
+      if (!updatedAt || !this.isSameUtcDay(updatedAt, this.addDaysUTC(now, -1))) {
+        return count;
+      }
+
+      return PENDING_STATUSES.includes(this.extractStatus(job)) ? count + 1 : count;
+    }, 0);
 
     const { start: weekStart, end: weekEnd } = this.getWeekRangeUTC(now);
     const previousWeekStart = this.addDaysUTC(weekStart, -7);
 
-    const completedTasksCurrent = this.countInRange(
-      completedTasksSource,
-      weekStart,
-      weekEnd,
-      COMPLETED_STATUSES,
-    );
-    const completedTasksPrevious = this.countInRange(
-      completedTasksSource,
-      previousWeekStart,
-      weekStart,
-      COMPLETED_STATUSES,
-    );
+    const completedTasksCurrent = this.countCompletedInRange(jobs, weekStart, weekEnd);
+    const completedTasksPrevious = this.countCompletedInRange(jobs, previousWeekStart, weekStart);
 
     const currentQuarterRange = this.getQuarterRangeUTC(now);
     const previousQuarterDate = this.addMonthsUTC(currentQuarterRange.start, -3);
     const previousQuarterRange = this.getQuarterRangeUTC(previousQuarterDate);
 
     const satisfactionBreakdown = this.computeSatisfactionBreakdown(
-      feedback,
+      jobs,
       currentQuarterRange.start,
       currentQuarterRange.end,
     );
     const previousSatisfactionBreakdown = this.computeSatisfactionBreakdown(
-      feedback,
+      jobs,
       previousQuarterRange.start,
       previousQuarterRange.end,
     );
@@ -101,19 +89,19 @@ export class MetricsRepository {
           periodLabel: 'trimestre',
         },
       },
-      jobsTrend: this.buildJobsTrend(jobsSource, now),
+      jobsTrend: this.buildJobsTrend(jobs, now),
       satisfactionBreakdown,
       updatedAt: this.getNowTimestampDTO(),
     };
   }
 
-  private async getDocs(
+  private async getDocsByOrg(
     collection: FirebaseFirestore.CollectionReference<FirebaseFirestore.DocumentData>,
     orgId?: string,
-  ): Promise<FirebaseFirestore.DocumentData[]> {
+  ): Promise<AnyDoc[]> {
     if (!orgId) {
       const snapshot = await collection.get();
-      return snapshot.docs.map((doc) => doc.data());
+      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     }
 
     const [orgIdDocs, organizationIdDocs] = await Promise.all([
@@ -121,73 +109,29 @@ export class MetricsRepository {
       collection.where('organizationId', '==', orgId).get(),
     ]);
 
-    const docsById = new Map<string, FirebaseFirestore.DocumentData>();
-
-    orgIdDocs.docs.forEach((doc) => {
-      docsById.set(doc.id, doc.data());
-    });
-
-    organizationIdDocs.docs.forEach((doc) => {
-      docsById.set(doc.id, doc.data());
-    });
-
+    const docsById = new Map<string, AnyDoc>();
+    orgIdDocs.docs.forEach((doc) => docsById.set(doc.id, { id: doc.id, ...doc.data() }));
+    organizationIdDocs.docs.forEach((doc) => docsById.set(doc.id, { id: doc.id, ...doc.data() }));
     return [...docsById.values()];
   }
 
-  private countInMonth(docs: FirebaseFirestore.DocumentData[], year: number, monthIndex: number): number {
+  private countCompletedInRange(docs: AnyDoc[], start: Date, end: Date): number {
     return docs.reduce((count, doc) => {
-      const date = this.extractEventDate(doc);
-      if (!date) {
+      const status = this.extractStatus(doc);
+      if (status !== COMPLETED_JOB_STATUS) {
         return count;
       }
 
-      const isInMonth = date.getUTCFullYear() === year && date.getUTCMonth() === monthIndex;
-      return isInMonth ? count + 1 : count;
-    }, 0);
-  }
-
-  private countInUtcDay(docs: FirebaseFirestore.DocumentData[], day: Date, validStatuses?: string[]): number {
-    return docs.reduce((count, doc) => {
-      const date = this.extractEventDate(doc);
-      if (!date || !this.isSameUtcDay(date, day)) {
-        return count;
-      }
-
-      if (validStatuses && validStatuses.length > 0) {
-        const status = this.extractStatus(doc);
-        if (!validStatuses.includes(status)) {
-          return count;
-        }
-      }
-
-      return count + 1;
-    }, 0);
-  }
-
-  private countInRange(
-    docs: FirebaseFirestore.DocumentData[],
-    start: Date,
-    end: Date,
-    validStatuses?: string[],
-  ): number {
-    return docs.reduce((count, doc) => {
       const date = this.extractEventDate(doc);
       if (!date || date < start || date >= end) {
         return count;
       }
 
-      if (validStatuses && validStatuses.length > 0) {
-        const status = this.extractStatus(doc);
-        if (!validStatuses.includes(status)) {
-          return count;
-        }
-      }
-
       return count + 1;
     }, 0);
   }
 
-  private buildJobsTrend(docs: FirebaseFirestore.DocumentData[], now: Date): JobsTrendPointDTO[] {
+  private buildJobsTrend(docs: AnyDoc[], now: Date): JobsTrendPointDTO[] {
     const days: Date[] = [];
     for (let i = 6; i >= 0; i -= 1) {
       days.push(this.addDaysUTC(now, -i));
@@ -195,32 +139,55 @@ export class MetricsRepository {
 
     return days.map((day) => ({
       label: this.getWeekLabel(day),
-      open: this.countInUtcDay(docs, day, OPEN_STATUSES),
-      completed: this.countInUtcDay(docs, day, COMPLETED_STATUSES),
+      open: this.countByDayAndStatuses(docs, day, OPEN_JOB_STATUSES),
+      completed: this.countByDayAndStatuses(docs, day, [COMPLETED_JOB_STATUS]),
     }));
   }
 
-  private computeSatisfactionBreakdown(
-    docs: FirebaseFirestore.DocumentData[],
-    start: Date,
-    end: Date,
-  ): SatisfactionBreakdownDTO {
+  private countByDayAndStatuses(docs: AnyDoc[], day: Date, statuses: string[]): number {
+    return docs.reduce((count, doc) => {
+      const date = this.extractEventDate(doc);
+      if (!date || !this.isSameUtcDay(date, day)) {
+        return count;
+      }
+
+      const status = this.extractStatus(doc);
+      if (!statuses.includes(status)) {
+        return count;
+      }
+
+      return count + 1;
+    }, 0);
+  }
+
+  private computeSatisfactionBreakdown(docs: AnyDoc[], start: Date, end: Date): SatisfactionBreakdownDTO {
     return docs.reduce<SatisfactionBreakdownDTO>(
       (acc, doc) => {
+        if (this.extractStatus(doc) !== COMPLETED_JOB_STATUS) {
+          return acc;
+        }
+
         const date = this.extractEventDate(doc);
         if (!date || date < start || date >= end) {
           return acc;
         }
 
-        const sentiment = this.extractSentiment(doc);
-        if (sentiment === 'positive') {
-          acc.positive += 1;
-        } else if (sentiment === 'negative') {
-          acc.negative += 1;
-        } else if (sentiment === 'neutral') {
-          acc.neutral += 1;
+        const rating = this.extractRating(doc);
+        if (rating === null) {
+          return acc;
         }
 
+        if (rating >= 4 && rating <= 5) {
+          acc.positive += 1;
+          return acc;
+        }
+
+        if (rating >= 2 && rating <= 3) {
+          acc.neutral += 1;
+          return acc;
+        }
+
+        acc.negative += 1;
         return acc;
       },
       { positive: 0, neutral: 0, negative: 0 },
@@ -246,37 +213,21 @@ export class MetricsRepository {
     return Number(delta.toFixed(2));
   }
 
-  private extractStatus(doc: FirebaseFirestore.DocumentData): string {
-    return String(doc.status ?? doc.state ?? '').toLowerCase();
+  private extractStatus(doc: AnyDoc): string {
+    return String(doc.status ?? doc.state ?? '').toUpperCase();
   }
 
-  private extractSentiment(doc: FirebaseFirestore.DocumentData): 'positive' | 'neutral' | 'negative' | null {
-    const sentimentRaw = doc.sentiment ?? doc.type ?? null;
-    if (typeof sentimentRaw === 'string') {
-      const sentiment = sentimentRaw.toLowerCase();
-      if (sentiment === 'positive' || sentiment === 'neutral' || sentiment === 'negative') {
-        return sentiment;
-      }
-    }
-
+  private extractRating(doc: AnyDoc): number | null {
     const rating = doc.rating ?? doc.score;
-    if (typeof rating === 'number') {
-      if (rating >= 4) {
-        return 'positive';
-      }
-
-      if (rating <= 2) {
-        return 'negative';
-      }
-
-      return 'neutral';
+    if (typeof rating !== 'number' || Number.isNaN(rating)) {
+      return null;
     }
 
-    return null;
+    return Math.round(rating);
   }
 
-  private extractEventDate(doc: FirebaseFirestore.DocumentData): Date | null {
-    const candidate = doc.createdAt ?? doc.updatedAt ?? doc.timestamp ?? doc.date ?? null;
+  private extractEventDate(doc: AnyDoc): Date | null {
+    const candidate = doc.updatedAt ?? doc.createdAt ?? doc.timestamp ?? doc.date ?? null;
     return this.toDate(candidate);
   }
 
@@ -310,7 +261,6 @@ export class MetricsRepository {
 
       const seconds = timestamp._seconds ?? timestamp.seconds;
       const nanoseconds = timestamp._nanoseconds ?? timestamp.nanoseconds ?? 0;
-
       if (typeof seconds === 'number') {
         return new Date(seconds * 1000 + Math.floor(nanoseconds / 1_000_000));
       }
@@ -335,7 +285,6 @@ export class MetricsRepository {
 
     const end = new Date(start);
     end.setUTCDate(end.getUTCDate() + 7);
-
     return { start, end };
   }
 
@@ -346,7 +295,6 @@ export class MetricsRepository {
 
     const start = new Date(Date.UTC(year, quarterStartMonth, 1));
     const end = new Date(Date.UTC(year, quarterStartMonth + 3, 1));
-
     return { start, end };
   }
 
